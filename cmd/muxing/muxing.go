@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -22,6 +24,12 @@ func Start(host string, port int) {
 	router := mux.NewRouter()
 
 	log.Println(fmt.Printf("Starting API server on %s:%d\n", host, port))
+
+	router.HandleFunc("/name/{id:[\\w|\\W]+}", helloHandler).Methods("GET")
+	router.HandleFunc("/bad", badHandler).Methods("GET")
+	router.HandleFunc("/data", dataHandler).Methods("POST")
+	router.HandleFunc("/headers", headersHandler).Methods("POST")
+
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), router); err != nil {
 		log.Fatal(err)
 	}
@@ -35,4 +43,32 @@ func main() {
 		port = 8081
 	}
 	Start(host, port)
+}
+
+func helloHandler(resp http.ResponseWriter, r *http.Request) {
+	_, err := resp.Write([]byte("Hello," + strings.TrimPrefix(r.URL.Path, "/name/")))
+	if err != nil {
+		return
+	}
+	resp.WriteHeader(http.StatusOK)
+}
+
+func badHandler(resp http.ResponseWriter, _ *http.Request) {
+	resp.WriteHeader(http.StatusInternalServerError)
+}
+
+func dataHandler(resp http.ResponseWriter, r *http.Request) {
+	bodyB, _ := ioutil.ReadAll(r.Body)
+	_, err := resp.Write([]byte("I got message:\n" + string(bodyB)))
+	if err != nil {
+		return
+	}
+	resp.WriteHeader(http.StatusOK)
+}
+
+func headersHandler(resp http.ResponseWriter, r *http.Request) {
+	aValue, _ := strconv.Atoi(r.Header.Get("a"))
+	bValue, _ := strconv.Atoi(r.Header.Get("b"))
+	resp.Header().Add("A+B", strconv.Itoa(aValue+bValue))
+	resp.WriteHeader(http.StatusOK)
 }
